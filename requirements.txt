@@ -1,7 +1,8 @@
 fastapi
 uvicorn[standard]
-jinja2
-python-multipart
 sqlalchemy
 pandas
-psycopg2-binary
+python-multipart
+jinja2
+psycopg[binary]
+python-dotenv
