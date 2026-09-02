@@ -1322,6 +1322,65 @@ def delete_response(
 
 
 # ============================================================
+# DELETE ALL RESPONSES
+# ============================================================
+
+@app.delete("/admin/delete-all")
+def delete_all_responses(
+
+    db: Session = Depends(get_db),
+
+):
+
+    try:
+
+        deleted = db.query(Response).delete(
+            synchronize_session=False
+        )
+
+        db.commit()
+
+
+        return {
+
+            "success": True,
+
+            "deleted": deleted,
+
+            "message": (
+
+                f"Majibu {deleted} yamefutwa "
+
+                "kikamilifu."
+
+            )
+
+        }
+
+
+    except Exception as e:
+
+        db.rollback()
+
+
+        return {
+
+            "success": False,
+
+            "error": (
+
+                "Kuna tatizo wakati "
+
+                "wa kufuta majibu yote."
+
+            ),
+
+            "details": str(e),
+
+        }
+
+
+# ============================================================
 # HEALTH CHECK
 # ============================================================
 

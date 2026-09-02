@@ -411,6 +411,31 @@ textarea:focus {
     transform: translateY(0);
 }
 
+.delete-all-button {
+    display: inline-block;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin: 8px 8px 8px 0;
+    box-shadow: 0 5px 15px rgba(127, 29, 29, 0.3);
+    transition: all 0.3s ease;
+}
+
+.delete-all-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(127, 29, 29, 0.45);
+}
+
+.delete-all-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 
 /* ============================================================
    TABLE

@@ -148,6 +148,18 @@
 
         </a>
 
+
+        <button
+            type="button"
+            class="delete-all-button"
+            onclick="deleteAllResponses({{ response_count }})"
+            {% if not response_count %}disabled{% endif %}
+        >
+
+            🗑️ Futa Majibu Yote
+
+        </button>
+
     </div>
 
 
@@ -287,6 +299,34 @@ function deleteResponse(responseId) {
     })
     .catch(error => {
         alert('❌ Kuna tatizo wakati wa kufuta jibu: ' + error.message);
+    });
+}
+
+function deleteAllResponses(responseCount) {
+
+    const confirmed = confirm(
+        `Unataka kufuta majibu yote ${responseCount}? ` +
+        'Sentensi za Kiswahili hazitafutwa. Hatua hii haiwezi kurudi nyuma.'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    fetch('/admin/delete-all', {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            location.reload();
+        } else {
+            alert('❌ Kuna tatizo: ' + (data.error || 'Haikuwezekana kufuta majibu'));
+        }
+    })
+    .catch(error => {
+        alert('❌ Kuna tatizo wakati wa kufuta majibu yote: ' + error.message);
     });
 }
 
