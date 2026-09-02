@@ -161,7 +161,7 @@ def show_form(
 
             request=request,
 
-            name="form.html",
+            name="index.html",
 
             context={
 
@@ -272,7 +272,7 @@ def show_form(
 
         request=request,
 
-        name="form.html",
+        name="index.html",
 
         context={
 

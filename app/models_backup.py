@@ -152,7 +152,7 @@ def show_form(
 
         return templates.TemplateResponse(
             request=request,
-            name="form.html",
+            name="index.html",
             context={
                 "sentences": [],
                 "participant_id": "",
@@ -226,7 +226,7 @@ def show_form(
 
     return templates.TemplateResponse(
         request=request,
-        name="form.html",
+        name="index.html",
         context={
             "sentences": sentences,
             "participant_id": participant_id,
