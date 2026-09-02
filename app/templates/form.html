@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="sw">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Kiswahili → Kisukuma - Tafsiri Sentensi
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+
+        <h1>
+            🌍 Kiswahili → Kisukuma
+        </h1>
+
+        <p>
+            Tafsiri sentensi zifuatazo kutoka Kiswahili kwenda Kisukuma.
+        </p>
+
+    </div>
+
+
+    {% if error %}
+
+    <div class="error">
+
+        ⚠️ {{ error }}
+
+    </div>
+
+    {% else %}
+
+
+    <form
+        action="/submit"
+        method="post"
+    >
+
+        <input
+            type="hidden"
+            name="participant_id"
+            value="{{ participant_id }}"
+        >
+
+
+        <div class="info-box">
+
+            <strong>
+                📝 Maelekezo:
+            </strong>
+
+            <p>
+                Tafadhali tafsiri kila sentensi ya Kiswahili kwenda Kisukuma. 
+                Majibu yako yatakusanywa kwa lengo la kujenga kamusi digital.
+            </p>
+
+        </div>
+
+
+        {% for sentence in sentences %}
+
+        <div class="question">
+
+            <div class="number">
+
+                Swali {{ loop.index }}/{{ sentences|length }}
+
+            </div>
+
+
+            <div class="swahili">
+
+                {{ sentence.kiswahili }}
+
+            </div>
+
+
+            <label>
+
+                💬 Andika tafsiri ya Kisukuma:
+
+            </label>
+
+
+            <textarea
+
+                name="question_{{ sentence.id }}"
+
+                placeholder="Andika tafsiri yako hapa..."
+
+                rows="3"
+                
+                required
+
+            ></textarea>
+
+        </div>
+
+        {% endfor %}
+
+
+        <button
+            type="submit"
+            class="submit-button"
+        >
+
+            ✅ Tuma Majibu
+
+        </button>
+
+
+    </form>
+
+
+    {% endif %}
+
+</div>
+
+</body>
+
+</html>

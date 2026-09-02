@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="sw">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Admin Dashboard - Kisukuma
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+
+<body>
+
+<div class="admin-container">
+
+    <h1>
+        📊 Kisukuma Dataset Dashboard
+    </h1>
+
+
+    <!-- ================================================= -->
+    <!-- STATISTICS -->
+    <!-- ================================================= -->
+
+    <div class="stats">
+
+        <div class="stat-card">
+
+            <h2>
+                📚 {{ sentence_count }}
+            </h2>
+
+            <p>
+                Sentensi za Kiswahili
+            </p>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h2>
+                💬 {{ response_count }}
+            </h2>
+
+            <p>
+                Majibu yaliyokusanywa
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- UPLOAD CSV -->
+    <!-- ================================================= -->
+
+    <div class="admin-card">
+
+        <h2>
+            📤 Pakia Sentensi za CSV
+        </h2>
+
+        <p>
+            CSV inapaswa kuwa na column inayoitwa: <code>kiswahili</code>
+        </p>
+
+
+        <form
+            action="/admin/upload"
+            method="post"
+            enctype="multipart/form-data"
+        >
+
+            <input
+                type="file"
+                name="file"
+                accept=".csv"
+                required
+            >
+
+
+            <button
+                type="submit"
+                class="submit-button"
+            >
+
+                📥 Pakia CSV
+
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- ACTIONS -->
+    <!-- ================================================= -->
+
+    <div class="admin-card">
+
+        <h2>
+            ⚙️ Usimamizi wa Dataset
+        </h2>
+
+
+        <a
+            href="/admin/import"
+            class="admin-button"
+        >
+
+            📂 Tumia dataset/sentences.csv
+
+        </a>
+
+
+        <a
+            href="/admin/download"
+            class="admin-button"
+        >
+
+            💾 Pakua Dataset ya Kisukuma
+
+        </a>
+
+
+        <a
+            href="/form"
+            class="admin-button"
+        >
+
+            📝 Fungua Translation Form
+
+        </a>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- RESPONSES -->
+    <!-- ================================================= -->
+
+    <div class="admin-card">
+
+        <h2>
+            📋 Majibu ya Hivi Karibuni
+        </h2>
+
+
+        {% if responses %}
+
+        <p style="color: #666; font-size: 0.95em;">
+            📌 Kuonyesha 20 majibu yanayofuata:
+        </p>
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            🆔 ID
+                        </th>
+
+                        <th>
+                            🇸 Kiswahili
+                        </th>
+
+                        <th>
+                            🗣️ Kisukuma
+                        </th>
+
+                        <th>
+                            👤 Mtumiaji
+                        </th>
+
+                        <th>
+                            ⚙️ Hatua
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                {% for response in responses %}
+
+                    <tr>
+
+                        <td>
+                            {{ response.id }}
+                        </td>
+
+                        <td>
+                            {{ response.kiswahili[:50] }}{% if response.kiswahili|length > 50 %}...{% endif %}
+                        </td>
+
+                        <td>
+                            {{ response.kisukuma[:50] }}{% if response.kisukuma|length > 50 %}...{% endif %}
+                        </td>
+
+                        <td style="font-size: 0.85em;">
+                            {{ response.participant_id[:12] }}...
+                        </td>
+
+                        <td>
+                            <button
+                                class="delete-button"
+                                onclick="deleteResponse({{ response.id }})"
+                                title="Futa jibu hili"
+                            >
+                                🗑️ Futa
+                            </button>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <p style="text-align: center; color: #999; padding: 30px;">
+            ℹ️ Bado hakuna majibu yaliyopokelewa.
+        </p>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+</body>
+
+<script>
+
+function deleteResponse(responseId) {
+    
+    const confirmed = confirm(
+        'Hakika unataka kufuta jibu hili? ' +
+        'Hatua hii haiwezi kurudi nyuma.'
+    );
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    fetch(`/admin/delete/${responseId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Jibu limefutwa kikamilifu!');
+            location.reload();
+        } else {
+            alert('❌ Kuna tatizo: ' + (data.error || 'Jibu halijapatikana'));
+        }
+    })
+    .catch(error => {
+        alert('❌ Kuna tatizo wakati wa kufuta jibu: ' + error.message);
+    });
+}
+
+</script>
+
+</html>
