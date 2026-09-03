@@ -34,6 +34,7 @@ from fastapi.templating import (
 )
 
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, exists, inspect, text
 
 import pandas as pd
 import random
@@ -60,6 +61,8 @@ from .database import (
 from .models import (
     Sentence,
     Response,
+    Tribe,
+    LanguageDataset,
 )
 
 
@@ -70,6 +73,41 @@ from .models import (
 Base.metadata.create_all(
     bind=engine
 )
+
+# Keep existing SQLite installations compatible with the new optional fields.
+if "responses" in inspect(engine).get_table_names():
+    columns = {column["name"] for column in inspect(engine).get_columns("responses")}
+    with engine.begin() as connection:
+        if "tribe" not in columns:
+            connection.execute(text("ALTER TABLE responses ADD COLUMN tribe VARCHAR(50)"))
+        if "target_language" not in columns:
+            connection.execute(text("ALTER TABLE responses ADD COLUMN target_language VARCHAR(50)"))
+
+TRIBES = [
+    {"name": "Kisukuma", "language_code": "kisukuma", "image": "wasukuma.png"},
+    {"name": "Kihaya", "language_code": "kihaya", "image": "wahaya.jpg"},
+    {"name": "Kinyakyusa", "language_code": "kinyakyusa", "image": "wanyakyusa.png"},
+    {"name": "Kiha", "language_code": "kiha", "image": "waha.png"},
+    {"name": "Kihehe", "language_code": "kihehe", "image": "wahehe.png"},
+]
+
+seed_db = next(get_db())
+try:
+    for item in TRIBES:
+        if not seed_db.query(Tribe).filter_by(name=item["name"]).first():
+            seed_db.add(Tribe(**item))
+    for item in TRIBES:
+        dataset_name = f"Kiswahili - {item['language_code']}"
+        if not seed_db.query(LanguageDataset).filter_by(name=dataset_name).first():
+            seed_db.add(LanguageDataset(
+                name=dataset_name,
+                source_language="kiswahili",
+                target_language=item["language_code"],
+                filename=f"{item['language_code']}_dataset.csv",
+            ))
+    seed_db.commit()
+finally:
+    seed_db.close()
 
 
 # ============================================================
@@ -146,44 +184,34 @@ def show_form(
     # Count sentences
     # --------------------------------------------------------
 
-    sentence_count = (
-        db.query(Sentence).count()
+    selected_tribe = request.query_params.get("tribe")
+    tribe = (
+        db.query(Tribe).filter(Tribe.name == selected_tribe).first()
+        if selected_tribe
+        else None
     )
+    tribes = db.query(Tribe).order_by(Tribe.id).all()
 
-
-    # --------------------------------------------------------
-    # Check minimum sentences
-    # --------------------------------------------------------
-
-    if sentence_count < 20:
-
+    if tribe is None:
         return templates.TemplateResponse(
-
             request=request,
-
             name="index.html",
-
             context={
-
                 "sentences": [],
-
                 "participant_id": "",
-
-                "error": (
-
-                    "Form haijawa tayari. "
-
-                    f"Database ina sentensi "
-                    f"{sentence_count}. "
-
-                    "Inahitajika angalau "
-                    "sentensi 20."
-
-                ),
-
+                "tribes": tribes,
+                "selected_tribe": None,
+                "error": None,
             },
-
         )
+
+    available_sentence_query = db.query(Sentence).filter(
+        ~exists().where(and_(
+            Response.kiswahili == Sentence.kiswahili,
+            Response.target_language == tribe.language_code,
+        ))
+    )
+    sentence_count = available_sentence_query.count()
 
 
     # --------------------------------------------------------
@@ -191,25 +219,20 @@ def show_form(
     # --------------------------------------------------------
 
     sentence_ids = [
-
         row[0]
-
-        for row in db.query(
-            Sentence.id
-        ).all()
-
+        for row in available_sentence_query.with_entities(Sentence.id).all()
     ]
 
 
     # --------------------------------------------------------
-    # Choose random 20
+    # Choose random 10
     # --------------------------------------------------------
 
     selected_ids = random.sample(
 
         sentence_ids,
 
-        20
+        min(10, len(sentence_ids))
 
     )
 
@@ -282,6 +305,8 @@ def show_form(
                 participant_id,
 
             "error": None,
+            "tribes": tribes,
+            "selected_tribe": tribe,
 
         },
 
@@ -309,7 +334,7 @@ async def submit_form(
 
 
     # --------------------------------------------------------
-    # Participant ID
+    # Participant ID and selected language
     # --------------------------------------------------------
 
     participant_id = (
@@ -326,6 +351,14 @@ async def submit_form(
         participant_id = str(
             uuid.uuid4()
         )
+
+    tribe_name = form_data.get("tribe")
+    if not tribe_name:
+        return RedirectResponse(url="/form", status_code=303)
+
+    tribe = db.query(Tribe).filter(Tribe.name == tribe_name).first()
+    if not tribe:
+        return RedirectResponse(url="/form", status_code=303)
 
 
     # --------------------------------------------------------
@@ -413,6 +446,13 @@ async def submit_form(
 
             continue
 
+        already_answered = db.query(Response.id).filter(
+            Response.kiswahili == sentence.kiswahili,
+            Response.target_language == tribe.language_code,
+        ).first()
+        if already_answered:
+            continue
+
 
         # ----------------------------------------------------
         # Create response
@@ -431,6 +471,8 @@ async def submit_form(
             participant_id=(
                 participant_id
             ),
+            tribe=tribe.name if tribe else "Kisukuma",
+            target_language=tribe.language_code if tribe else "kisukuma",
 
         )
 
@@ -483,12 +525,10 @@ def admin_dashboard(
     # Count sentences
     # --------------------------------------------------------
 
-    sentence_count = (
-
+    total_sentence_count = (
         db.query(
             Sentence
         ).count()
-
     )
 
 
@@ -503,6 +543,22 @@ def admin_dashboard(
         ).count()
 
     )
+
+    tribes = db.query(Tribe).order_by(Tribe.id).all()
+    datasets = db.query(LanguageDataset).order_by(LanguageDataset.id).all()
+    completed_pairs = db.query(
+        Response.kiswahili,
+        Response.target_language,
+    ).filter(Response.target_language.isnot(None)).distinct().all()
+    completed_languages = {}
+    for sentence_text, language_code in completed_pairs:
+        completed_languages.setdefault(sentence_text, set()).add(language_code)
+    sentence_texts = db.query(Sentence.kiswahili).distinct().all()
+    completed_sentence_count = sum(
+        len(completed_languages.get(sentence_text, set())) >= len(tribes)
+        for (sentence_text,) in sentence_texts
+    )
+    sentence_count = total_sentence_count - completed_sentence_count
 
 
     # --------------------------------------------------------
@@ -544,6 +600,8 @@ def admin_dashboard(
 
             "responses":
                 responses,
+            "tribes": tribes,
+            "datasets": datasets,
 
         },
 
@@ -1141,6 +1199,8 @@ def download_dataset(
 
             "participant_id":
                 response.participant_id,
+            "tribe": response.tribe or "Kisukuma",
+            "target_language": response.target_language or "kisukuma",
 
         })
 
@@ -1162,6 +1222,8 @@ def download_dataset(
             "kisukuma",
 
             "participant_id",
+            "tribe",
+            "target_language",
 
         ],
 
@@ -1223,8 +1285,44 @@ def download_dataset(
 
             )
 
+
         },
 
+    )
+
+
+@app.get("/admin/download/{language_code}")
+def download_language_dataset(
+    language_code: str,
+    db: Session = Depends(get_db),
+):
+    """Download responses for one Kiswahili-to-tribal-language dataset."""
+    dataset = db.query(LanguageDataset).filter(
+        LanguageDataset.target_language == language_code
+    ).first()
+    if not dataset:
+        return {"error": "Dataset haijapatikana."}
+
+    responses = db.query(Response).filter(
+        Response.target_language == language_code
+    ).order_by(Response.id.asc()).all()
+    data = [{
+        "id": item.id,
+        "kiswahili": item.kiswahili,
+        language_code: item.kisukuma,
+        "participant_id": item.participant_id,
+    } for item in responses]
+    output = io.StringIO()
+    pd.DataFrame(
+        data,
+        columns=["id", "kiswahili", language_code, "participant_id"],
+    ).to_csv(output, index=False)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{dataset.filename}"'
+        },
     )
 
 

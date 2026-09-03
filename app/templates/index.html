@@ -11,9 +11,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>
-        Kiswahili → Kisukuma - Tafsiri Sentensi
-    </title>
+    <title>Kiswahili → Lugha za Makabila</title>
 
     <link
         rel="stylesheet"
@@ -23,20 +21,18 @@
 </head>
 
 
-<body>
+<body class="{% if selected_tribe %}has-tribe-background{% endif %}"
+      {% if selected_tribe %}style="--page-tribe-image: url('/static/{{ selected_tribe.image }}')"{% endif %}>
 
 <div class="container">
 
-    <div class="header">
-
-        <h1>
-            🌍 Kiswahili → Kisukuma
-        </h1>
-
-        <p>
-            Tafsiri sentensi zifuatazo kutoka Kiswahili kwenda Kisukuma.
-        </p>
-
+    <div class="header flag-header" role="img" aria-label="Bendera ya Tanzania yenye ujumbe wa mradi">
+        <div class="flag-fabric"></div>
+        <div class="header-content">
+        <span class="eyebrow"> LUGHA ZA TANZANIA</span>
+        <h1>🌍 Tafsiri kwa lugha yako</h1>
+        <p>Chagua kabila/lugha kwanza, kisha jibu maswali 10.</p>
+        </div>
     </div>
 
 
@@ -51,16 +47,34 @@
     {% else %}
 
 
-    <form
-        action="/submit"
-        method="post"
-    >
+    <form action="/submit" method="post">
+        <section class="tribe-picker">
+            <h2>Chagua lugha yako</h2>
+            <p class="muted">Chagua kadi moja ili kuanza fomu ya maswali 10.</p>
+            <div class="tribe-grid">
+            {% for tribe in tribes %}
+                <label class="tribe-card {% if selected_tribe and tribe.name == selected_tribe.name %}selected{% endif %}"
+                       style="--tribe-image: url('/static/{{ tribe.image }}')">
+                    <input type="radio" name="tribe" value="{{ tribe.name }}"
+                           {% if selected_tribe and tribe.name == selected_tribe.name %}checked{% endif %}
+                           onchange="window.location='/form?tribe=' + encodeURIComponent(this.value)">
+                    <span class="tribe-overlay"></span>
+                    <span class="tribe-name">{{ tribe.name }}</span>
+                    <span class="tribe-code">{{ tribe.language_code }}</span>
+                </label>
+            {% endfor %}
+            </div>
+        </section>
 
-        <input
-            type="hidden"
-            name="participant_id"
-            value="{{ participant_id }}"
-        >
+        {% if selected_tribe and sentences %}
+        <input type="hidden" name="participant_id" value="{{ participant_id }}">
+        <div class="form-hero" style="--selected-image: url('/static/{{ selected_tribe.image }}')">
+            <div class="form-hero-content">
+                <span class="eyebrow">KISWAHILI → {{ selected_tribe.name }}</span>
+                <h2>Maswali ya tafsiri</h2>
+                <p>Tafsiri kila sentensi kwa {{ selected_tribe.name }}.</p>
+            </div>
+        </div>
 
 
         <div class="info-box">
@@ -70,7 +84,7 @@
             </strong>
 
             <p>
-                Tafadhali tafsiri kila sentensi ya Kiswahili kwenda Kisukuma. 
+                Tafadhali tafsiri kila sentensi ya Kiswahili kwenda {{ selected_tribe.name }}.
                 Majibu yako yatakusanywa kwa lengo la kujenga kamusi digital.
             </p>
 
@@ -97,7 +111,7 @@
 
             <label>
 
-                💬 Andika tafsiri ya Kisukuma:
+                💬 Andika tafsiri ya {{ selected_tribe.name if selected_tribe else 'lugha uliyochagua' }}:
 
             </label>
 
@@ -127,6 +141,19 @@
             ✅ Tuma Majibu
 
         </button>
+        {% elif selected_tribe %}
+        <div class="selection-prompt completion-prompt">
+            <div class="selection-icon">✅</div>
+            <h2>Maswali ya {{ selected_tribe.name }} yamekamilika</h2>
+            <p>Sentensi zote tayari zimepata tafsiri ya lugha hii.</p>
+        </div>
+        {% else %}
+        <div class="selection-prompt">
+            <div class="selection-icon">☝</div>
+            <h2>Karibu kwenye ukusanyaji wa lugha</h2>
+            <p>Maswali yataonekana hapa baada ya kuchagua lugha/kabila lako hapo juu.</p>
+        </div>
+        {% endif %}
 
 
     </form>

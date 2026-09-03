@@ -11,7 +11,7 @@
     >
 
     <title>
-        Admin Dashboard - Kisukuma
+        Admin Dashboard - Kiswahili → Lugha za Makabila
     </title>
 
     <link
@@ -44,9 +44,13 @@
             </h2>
 
             <p>
-                Sentensi za Kiswahili
+                Maswali yanayobaki
             </p>
 
+        </div>
+        <div class="stat-card">
+            <h2>🌍 {{ tribes|length }}</h2>
+            <p>Lugha za makabila</p>
         </div>
 
 
@@ -60,6 +64,20 @@
                 Majibu yaliyokusanywa
             </p>
 
+        </div>
+
+        <div class="admin-card">
+            <h2>📁 CSV za kila lugha</h2>
+            <p>Pakua majibu yaliyokusanywa kwa lugha/kabila husika.</p>
+            <div class="dataset-grid">
+            {% for dataset in datasets %}
+                <div class="dataset-item">
+                    <strong>{{ dataset.name }}</strong>
+                    <span>{{ dataset.target_language }}</span>
+                    <a href="/admin/download/{{ dataset.target_language }}" class="admin-button">⬇ Pakua CSV</a>
+                </div>
+            {% endfor %}
+            </div>
         </div>
 
     </div>
@@ -197,8 +215,9 @@
                         </th>
 
                         <th>
-                            🗣️ Kisukuma
+                            🗣️ Jibu la lugha
                         </th>
+                        <th>Kabila</th>
 
                         <th>
                             👤 Mtumiaji
@@ -230,6 +249,7 @@
                         <td>
                             {{ response.kisukuma[:50] }}{% if response.kisukuma|length > 50 %}...{% endif %}
                         </td>
+                        <td>{{ response.tribe or 'Kisukuma' }}</td>
 
                         <td style="font-size: 0.85em;">
                             {{ response.participant_id[:12] }}...
