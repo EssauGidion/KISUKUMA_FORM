@@ -74,7 +74,13 @@
                 <div class="dataset-item">
                     <strong>{{ dataset.name }}</strong>
                     <span>{{ dataset.target_language }}</span>
+                    <span class="dataset-count">✅ {{ response_counts.get(dataset.target_language, 0) }} maswali yamejibiwa</span>
                     <a href="/admin/download/{{ dataset.target_language }}" class="admin-button">⬇ Pakua CSV</a>
+                    <button type="button" class="delete-dataset-button"
+                            onclick="deleteDataset('{{ dataset.target_language }}', {{ response_counts.get(dataset.target_language, 0) }})"
+                            {% if not response_counts.get(dataset.target_language, 0) %}disabled{% endif %}>
+                        🗑️ Futa majibu ya CSV
+                    </button>
                 </div>
             {% endfor %}
             </div>
@@ -175,7 +181,15 @@
         >
 
             🗑️ Futa Majibu Yote
+        </button>
 
+        <button
+            type="button"
+            class="delete-all-button delete-sentences-button"
+            onclick="deleteSentences({{ sentence_total }})"
+            {% if not sentence_total %}disabled{% endif %}
+        >
+            🗑️ Futa CSV ya Sentensi ({{ sentence_total }})
         </button>
 
     </div>
@@ -347,6 +361,60 @@ function deleteAllResponses(responseCount) {
     })
     .catch(error => {
         alert('❌ Kuna tatizo wakati wa kufuta majibu yote: ' + error.message);
+    });
+}
+
+function deleteDataset(languageCode, responseCount) {
+    const confirmed = confirm(
+        `Unataka kufuta majibu yote ${responseCount} ya ${languageCode}? ` +
+        'Sentensi za Kiswahili na lugha nyingine hazitafutwa.'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    fetch(`/admin/delete-dataset/${encodeURIComponent(languageCode)}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            location.reload();
+        } else {
+            alert('❌ Kuna tatizo: ' + (data.error || 'Dataset haikufutwa'));
+        }
+    })
+    .catch(error => {
+        alert('❌ Kuna tatizo wakati wa kufuta dataset: ' + error.message);
+    });
+}
+
+function deleteSentences(sentenceCount) {
+    const confirmed = confirm(
+        `Unataka kufuta sentensi zote ${sentenceCount} zilizoingizwa/kupakiwa kupitia CSV? ` +
+        'Majibu yaliyokusanywa hayatatafutwa.'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    fetch('/admin/delete-sentences', {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            location.reload();
+        } else {
+            alert('❌ Kuna tatizo: ' + (data.error || 'Sentensi hazikufutwa'));
+        }
+    })
+    .catch(error => {
+        alert('❌ Kuna tatizo wakati wa kufuta sentensi: ' + error.message);
     });
 }
 

@@ -34,7 +34,7 @@ from fastapi.templating import (
 )
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, exists, inspect, text
+from sqlalchemy import and_, exists, func, inspect, text
 
 import pandas as pd
 import random
@@ -89,6 +89,13 @@ TRIBES = [
     {"name": "Kinyakyusa", "language_code": "kinyakyusa", "image": "wanyakyusa.png"},
     {"name": "Kiha", "language_code": "kiha", "image": "waha.png"},
     {"name": "Kihehe", "language_code": "kihehe", "image": "wahehe.png"},
+    {"name": "Wachaga", "language_code": "kichaga", "image": "wachaga.png"},
+    {"name": "Wagogo", "language_code": "kigogo", "image": "wagogo.png"},
+    {"name": "Wajita", "language_code": "kijita", "image": "wajita.png"},
+    {"name": "Wanyamwezi", "language_code": "kinyamwezi", "image": "wanyamwezi.png"},
+    {"name": "Wakurya", "language_code": "kikurya", "image": "wakurya.png"},
+    {"name": "Wazaramo", "language_code": "kizaramo", "image": "wazaramo.png"},
+    {"name": "Wamakonde", "language_code": "kimakonde", "image": "wamakonde.png"},
 ]
 
 seed_db = next(get_db())
@@ -546,6 +553,15 @@ def admin_dashboard(
 
     tribes = db.query(Tribe).order_by(Tribe.id).all()
     datasets = db.query(LanguageDataset).order_by(LanguageDataset.id).all()
+    response_counts = dict(
+        db.query(
+            Response.target_language,
+            func.count(Response.id),
+        )
+        .filter(Response.target_language.isnot(None))
+        .group_by(Response.target_language)
+        .all()
+    )
     completed_pairs = db.query(
         Response.kiswahili,
         Response.target_language,
@@ -594,6 +610,8 @@ def admin_dashboard(
 
             "sentence_count":
                 sentence_count,
+            "sentence_total":
+                total_sentence_count,
 
             "response_count":
                 response_count,
@@ -602,6 +620,7 @@ def admin_dashboard(
                 responses,
             "tribes": tribes,
             "datasets": datasets,
+            "response_counts": response_counts,
 
         },
 
@@ -1324,6 +1343,62 @@ def download_language_dataset(
             "Content-Disposition": f'attachment; filename="{dataset.filename}"'
         },
     )
+
+
+@app.delete("/admin/delete-sentences")
+def delete_sentences(
+    db: Session = Depends(get_db),
+):
+    """Delete imported/uploaded sentence records without deleting responses."""
+    try:
+        deleted = db.query(Sentence).delete(synchronize_session=False)
+        db.commit()
+        return {
+            "success": True,
+            "deleted": deleted,
+            "message": f"Sentensi {deleted} zimefutwa kikamilifu.",
+        }
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": "Kuna tatizo wakati wa kufuta sentensi.",
+            "details": str(e),
+        }
+
+
+@app.delete("/admin/delete-dataset/{language_code}")
+def delete_language_dataset(
+    language_code: str,
+    db: Session = Depends(get_db),
+):
+    """Delete collected responses for one language without deleting sentences."""
+    dataset = db.query(LanguageDataset).filter(
+        LanguageDataset.target_language == language_code
+    ).first()
+    if not dataset:
+        return {
+            "success": False,
+            "error": "Dataset haijapatikana.",
+        }
+
+    try:
+        deleted = db.query(Response).filter(
+            Response.target_language == language_code
+        ).delete(synchronize_session=False)
+        db.commit()
+        return {
+            "success": True,
+            "deleted": deleted,
+            "message": f"Majibu {deleted} ya {language_code} yamefutwa.",
+        }
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": "Kuna tatizo wakati wa kufuta dataset.",
+            "details": str(e),
+        }
 
 
 # ============================================================
