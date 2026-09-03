@@ -410,6 +410,11 @@ textarea:focus {
     margin: 30px 0;
 }
 
+.stats > .admin-card {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+}
+
 .stat-card {
     background: white;
     padding: 35px 25px;
@@ -486,12 +491,42 @@ textarea:focus {
     margin-top: 20px;
 }
 
-.dataset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
-.dataset-item { padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; display: flex; flex-direction: column; gap: 5px; }
+.dataset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.dataset-item {
+    min-width: 0;
+    min-height: 190px;
+    padding: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    background: #fbfdfc;
+}
+
+.dataset-item strong {
+    min-height: 2.8em;
+    color: #123b4a;
+    line-height: 1.4;
+}
+
 .dataset-item span { color: #687780; font-size: .85rem; }
 .dataset-item .dataset-count { color: #006a4e; font-weight: 700; }
-.dataset-item .admin-button { margin: 8px 0 0; text-align: center; }
+.dataset-item .admin-button {
+    width: 100%;
+    margin: auto 0 0;
+    padding: 10px 12px;
+    text-align: center;
+    font-size: .9rem;
+}
+
 .delete-dataset-button {
+    width: 100%;
     padding: 10px 12px;
     background: #fff1f2;
     color: #991b1b;
@@ -499,6 +534,7 @@ textarea:focus {
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
+    font-size: .9rem;
 }
 .delete-dataset-button:hover:not(:disabled) { background: #ffe4e6; }
 .delete-dataset-button:disabled { opacity: .5; cursor: not-allowed; }
@@ -592,6 +628,22 @@ textarea:focus {
 
 .delete-sentences-button {
     background: linear-gradient(135deg, #92400e, #78350f);
+}
+
+@media (max-width: 900px) {
+    .dataset-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .dataset-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dataset-item {
+        min-height: 0;
+    }
 }
 
 
@@ -744,6 +796,10 @@ td {
     .admin-card {
         padding: 20px;
     }
+
+    .dataset-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     
     .admin-card h2 {
         font-size: 1.5em;
@@ -879,6 +935,15 @@ td {
     .admin-card {
         padding: 15px;
         margin-bottom: 15px;
+    }
+
+    .dataset-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .dataset-item {
+        min-height: 0;
     }
     
     .admin-card h2 {
