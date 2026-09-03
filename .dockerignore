@@ -4,4 +4,3 @@
 .gitignore
 __pycache__
 *.pyc
-kisukuma.db
