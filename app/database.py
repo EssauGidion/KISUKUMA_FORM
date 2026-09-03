@@ -1,12 +1,10 @@
-
 # ============================================================
 # DATABASE.PY
 # Database configuration and session management
 # ============================================================
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
 # ============================================================
@@ -18,23 +16,42 @@ DATABASE_URL = os.getenv(
     "sqlite:///./kisukuma.db"
 )
 
+# Render/PostgreSQL compatibility
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace(
         "postgres://",
         "postgresql+psycopg2://",
         1
     )
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql://",
+        "postgresql+psycopg2://",
+        1
+    )
+
+# ============================================================
+# CONNECTION SETTINGS
+# ============================================================
 
 connect_args = {}
 
 if DATABASE_URL.startswith("postgresql"):
     connect_args["sslmode"] = "require"
 
+# ============================================================
+# ENGINE
+# ============================================================
+
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
     pool_pre_ping=True
 )
+
+# ============================================================
+# SESSION
+# ============================================================
 
 SessionLocal = sessionmaker(
     autocommit=False,
