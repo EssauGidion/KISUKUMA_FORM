@@ -440,6 +440,12 @@ async def submit_form(
 
             continue
 
+        # Keep this sentence available for another participant when the
+        # current participant does not know its translation.
+        if kisukuma_answer.upper() == "SIJUHI":
+
+            continue
+
 
         # ----------------------------------------------------
         # Find sentence

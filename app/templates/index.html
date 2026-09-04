@@ -57,7 +57,7 @@
                        style="--tribe-image: url('/static/{{ tribe.image }}')">
                     <input type="radio" name="tribe" value="{{ tribe.name }}"
                            {% if selected_tribe and tribe.name == selected_tribe.name %}checked{% endif %}
-                           onchange="window.location='/form?tribe=' + encodeURIComponent(this.value)">
+                           onchange="showLanguageAlert(this)">
                     <span class="tribe-overlay"></span>
                     <span class="tribe-name">{{ tribe.name }}</span>
                     <span class="tribe-code">{{ tribe.language_code }}</span>
@@ -162,6 +162,56 @@
     {% endif %}
 
 </div>
+
+<div class="language-alert" id="language-alert" role="dialog" aria-modal="true"
+     aria-labelledby="language-alert-title" aria-describedby="language-alert-message" hidden>
+    <div class="language-alert-card">
+        <div class="language-alert-icon" aria-hidden="true">💡</div>
+        <span class="eyebrow">TAARIFA MUHIMU</span>
+        <h2 id="language-alert-title">Kabla ya kuanza</h2>
+        <p id="language-alert-message">
+            Kama hutashindwa kutafsiri sentensi, andika neno
+            <strong>SIJUHI</strong> kwa herufi kubwa Tafadhari !!!
+        </p>
+        <div class="language-alert-actions">
+            <button type="button" class="alert-cancel" onclick="closeLanguageAlert()">Ghairi</button>
+            <button type="button" class="alert-confirm" onclick="continueToLanguageForm()">Nimeelewa, endelea</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pendingLanguageInput = null;
+
+    function showLanguageAlert(input) {
+        pendingLanguageInput = input;
+        document.getElementById('language-alert').hidden = false;
+        document.body.classList.add('alert-open');
+        document.querySelector('.alert-confirm').focus();
+    }
+
+    function closeLanguageAlert() {
+        if (pendingLanguageInput) {
+            pendingLanguageInput.checked = false;
+        }
+        pendingLanguageInput = null;
+        document.getElementById('language-alert').hidden = true;
+        document.body.classList.remove('alert-open');
+    }
+
+    function continueToLanguageForm() {
+        if (!pendingLanguageInput) {
+            return;
+        }
+        window.location = '/form?tribe=' + encodeURIComponent(pendingLanguageInput.value);
+    }
+
+    document.getElementById('language-alert').addEventListener('click', function (event) {
+        if (event.target === this) {
+            closeLanguageAlert();
+        }
+    });
+</script>
 
 </body>
 
