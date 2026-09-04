@@ -573,17 +573,12 @@ def admin_dashboard(
         .group_by(Response.target_language)
         .all()
     )
-    completed_pairs = db.query(
-        Response.kiswahili,
-        Response.target_language,
-    ).filter(Response.target_language.isnot(None)).distinct().all()
-    completed_languages = {}
-    for sentence_text, language_code in completed_pairs:
-        completed_languages.setdefault(sentence_text, set()).add(language_code)
-    sentence_texts = db.query(Sentence.kiswahili).distinct().all()
-    completed_sentence_count = sum(
-        len(completed_languages.get(sentence_text, set())) >= len(tribes)
-        for (sentence_text,) in sentence_texts
+    completed_sentence_count = (
+        db.query(Response.kiswahili)
+        .filter(Response.target_language.isnot(None))
+        .group_by(Response.kiswahili)
+        .having(func.count(func.distinct(Response.target_language)) >= len(tribes))
+        .count()
     )
     sentence_count = total_sentence_count - completed_sentence_count
 
@@ -649,34 +644,35 @@ def _merge_sentences(
     if not cleaned:
         return 0
 
-    existing = {
-        sentence.kiswahili: sentence
-        for sentence in db.query(Sentence).filter(Sentence.kiswahili.in_(cleaned)).all()
-    }
     inserted = 0
-    for sentence_text in cleaned:
-        sentence = existing.get(sentence_text)
-        if sentence is None:
-            sentence = Sentence(
-                kiswahili=sentence_text,
-                is_uploaded=upload is not None,
-            )
-            db.add(sentence)
+    batch_size = 1000
+    for start in range(0, len(cleaned), batch_size):
+        batch = cleaned[start:start + batch_size]
+        existing = {
+            sentence.kiswahili: sentence
+            for sentence in db.query(Sentence).filter(Sentence.kiswahili.in_(batch)).all()
+        }
+        new_sentences = [
+            Sentence(kiswahili=sentence_text, is_uploaded=upload is not None)
+            for sentence_text in batch
+            if sentence_text not in existing
+        ]
+        if new_sentences:
+            db.add_all(new_sentences)
             db.flush()
-            existing[sentence_text] = sentence
-            inserted += 1
+            existing.update(
+                {sentence.kiswahili: sentence for sentence in new_sentences}
+            )
+            inserted += len(new_sentences)
+
         if upload is not None:
-            link_exists = db.execute(
-                sentence_sources.select().where(
-                    sentence_sources.c.sentence_id == sentence.id,
-                    sentence_sources.c.upload_id == upload.id,
-                )
-            ).first()
-            if not link_exists:
-                db.execute(sentence_sources.insert().values(
-                    sentence_id=sentence.id,
-                    upload_id=upload.id,
-                ))
+            db.execute(
+                sentence_sources.insert(),
+                [
+                    {"sentence_id": sentence.id, "upload_id": upload.id}
+                    for sentence in existing.values()
+                ],
+            )
     return inserted
 
 
@@ -685,7 +681,7 @@ def _merge_sentences(
 # ============================================================
 
 @app.post("/admin/upload")
-async def upload_csv(
+def upload_csv(
 
     file: UploadFile = File(...),
 
@@ -729,7 +725,7 @@ async def upload_csv(
         # Read file
         # ----------------------------------------------------
 
-        contents = await file.read()
+        contents = file.file.read()
 
 
         # ----------------------------------------------------
