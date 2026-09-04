@@ -3,10 +3,11 @@
 # Database models
 # ============================================================
 
-from sqlalchemy import Column
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Table
 from sqlalchemy import Integer
 from sqlalchemy import String
-from sqlalchemy import Text
+from sqlalchemy import Text, text
+from sqlalchemy.sql import func
 
 from .database import Base
 
@@ -29,6 +30,19 @@ class Sentence(Base):
         Text,
         nullable=False
     )
+
+    # True only for sentences created by an uploaded/imported CSV.  Existing
+    # installations are migrated with False so deleting a CSV cannot remove
+    # legacy records that have no source metadata.
+    is_uploaded = Column(Boolean, nullable=False, default=False, server_default=text("FALSE"))
+
+
+sentence_sources = Table(
+    "sentence_sources",
+    Base.metadata,
+    Column("sentence_id", ForeignKey("sentences.id", ondelete="CASCADE"), primary_key=True),
+    Column("upload_id", ForeignKey("uploaded_csvs.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 # ============================================================
@@ -82,3 +96,11 @@ class LanguageDataset(Base):
     source_language = Column(String(50), nullable=False)
     target_language = Column(String(50), nullable=False)
     filename = Column(String(150), nullable=False)
+
+
+class UploadedCSV(Base):
+    __tablename__ = "uploaded_csvs"
+
+    id = Column(Integer, primary_key=True)
+    filename = Column(String(255), nullable=False)
+    uploaded_at = Column(DateTime, nullable=False, server_default=func.now())

@@ -41,6 +41,7 @@ import random
 import io
 import os
 import uuid
+from typing import Iterable
 
 
 # ============================================================
@@ -63,6 +64,8 @@ from .models import (
     Response,
     Tribe,
     LanguageDataset,
+    UploadedCSV,
+    sentence_sources,
 )
 
 
@@ -82,6 +85,13 @@ if "responses" in inspect(engine).get_table_names():
             connection.execute(text("ALTER TABLE responses ADD COLUMN tribe VARCHAR(50)"))
         if "target_language" not in columns:
             connection.execute(text("ALTER TABLE responses ADD COLUMN target_language VARCHAR(50)"))
+if "sentences" in inspect(engine).get_table_names():
+    columns = {column["name"] for column in inspect(engine).get_columns("sentences")}
+    if "is_uploaded" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE sentences ADD COLUMN is_uploaded BOOLEAN NOT NULL DEFAULT FALSE")
+            )
 
 TRIBES = [
     {"name": "Kisukuma", "language_code": "kisukuma", "image": "wasukuma.png"},
@@ -553,6 +563,7 @@ def admin_dashboard(
 
     tribes = db.query(Tribe).order_by(Tribe.id).all()
     datasets = db.query(LanguageDataset).order_by(LanguageDataset.id).all()
+    uploaded_csvs = db.query(UploadedCSV).order_by(UploadedCSV.uploaded_at.desc(), UploadedCSV.id.desc()).all()
     response_counts = dict(
         db.query(
             Response.target_language,
@@ -621,10 +632,52 @@ def admin_dashboard(
             "tribes": tribes,
             "datasets": datasets,
             "response_counts": response_counts,
+            "uploaded_csvs": uploaded_csvs,
 
         },
 
     )
+
+
+def _merge_sentences(
+    db: Session,
+    texts: Iterable[str],
+    upload: UploadedCSV | None = None,
+):
+    """Insert only new sentence text and associate every row with its CSV."""
+    cleaned = list(dict.fromkeys(str(value).strip() for value in texts if str(value).strip()))
+    if not cleaned:
+        return 0
+
+    existing = {
+        sentence.kiswahili: sentence
+        for sentence in db.query(Sentence).filter(Sentence.kiswahili.in_(cleaned)).all()
+    }
+    inserted = 0
+    for sentence_text in cleaned:
+        sentence = existing.get(sentence_text)
+        if sentence is None:
+            sentence = Sentence(
+                kiswahili=sentence_text,
+                is_uploaded=upload is not None,
+            )
+            db.add(sentence)
+            db.flush()
+            existing[sentence_text] = sentence
+            inserted += 1
+        if upload is not None:
+            link_exists = db.execute(
+                sentence_sources.select().where(
+                    sentence_sources.c.sentence_id == sentence.id,
+                    sentence_sources.c.upload_id == upload.id,
+                )
+            ).first()
+            if not link_exists:
+                db.execute(sentence_sources.insert().values(
+                    sentence_id=sentence.id,
+                    upload_id=upload.id,
+                ))
+    return inserted
 
 
 # ============================================================
@@ -816,49 +869,10 @@ async def upload_csv(
         )
 
 
-        # ----------------------------------------------------
-        # Records
-        # ----------------------------------------------------
-
-        records = df.to_dict(
-
-            orient="records"
-
-        )
-
-
-        # ----------------------------------------------------
-        # Insert database
-        # ----------------------------------------------------
-
-        batch_size = 5000
-
-
-        for start in range(
-
-            0,
-
-            len(records),
-
-            batch_size
-
-        ):
-
-            batch = records[
-
-                start:
-                start + batch_size
-
-            ]
-
-
-            db.bulk_insert_mappings(
-
-                Sentence,
-
-                batch
-
-            )
+        upload = UploadedCSV(filename=file.filename)
+        db.add(upload)
+        db.flush()
+        _merge_sentences(db, df["kiswahili"].tolist(), upload)
 
 
         # ----------------------------------------------------
@@ -872,13 +886,7 @@ async def upload_csv(
         # Redirect
         # ----------------------------------------------------
 
-        return RedirectResponse(
-
-            url="/admin",
-
-            status_code=303
-
-        )
+        return RedirectResponse(url="/admin", status_code=303)
 
 
     except Exception as e:
@@ -1074,49 +1082,10 @@ def import_default_csv(
         )
 
 
-        # ----------------------------------------------------
-        # Records
-        # ----------------------------------------------------
-
-        records = df.to_dict(
-
-            orient="records"
-
-        )
-
-
-        # ----------------------------------------------------
-        # Insert
-        # ----------------------------------------------------
-
-        batch_size = 5000
-
-
-        for start in range(
-
-            0,
-
-            len(records),
-
-            batch_size
-
-        ):
-
-            batch = records[
-
-                start:
-                start + batch_size
-
-            ]
-
-
-            db.bulk_insert_mappings(
-
-                Sentence,
-
-                batch
-
-            )
+        upload = UploadedCSV(filename=os.path.basename(csv_path))
+        db.add(upload)
+        db.flush()
+        _merge_sentences(db, df["kiswahili"].tolist(), upload)
 
 
         # ----------------------------------------------------
@@ -1351,7 +1320,9 @@ def delete_sentences(
 ):
     """Delete imported/uploaded sentence records without deleting responses."""
     try:
+        db.execute(sentence_sources.delete())
         deleted = db.query(Sentence).delete(synchronize_session=False)
+        db.query(UploadedCSV).delete(synchronize_session=False)
         db.commit()
         return {
             "success": True,
@@ -1363,6 +1334,53 @@ def delete_sentences(
         return {
             "success": False,
             "error": "Kuna tatizo wakati wa kufuta sentensi.",
+            "details": str(e),
+        }
+
+
+@app.delete("/admin/delete-upload/{upload_id}")
+def delete_uploaded_csv(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    """Remove one CSV's source links and only its orphaned new sentences."""
+    upload = db.query(UploadedCSV).filter(UploadedCSV.id == upload_id).first()
+    if not upload:
+        return {"success": False, "error": "CSV haikupatikana."}
+
+    try:
+        sentence_ids = [
+            row[0] for row in db.query(sentence_sources.c.sentence_id).filter(
+                sentence_sources.c.upload_id == upload_id
+            ).all()
+        ]
+        db.execute(sentence_sources.delete().where(sentence_sources.c.upload_id == upload_id))
+        deleted_sentences = 0
+        for sentence_id in sentence_ids:
+            sentence = db.query(Sentence).filter(
+                Sentence.id == sentence_id,
+                Sentence.is_uploaded.is_(True),
+            ).first()
+            still_linked = db.execute(
+                sentence_sources.select().where(
+                    sentence_sources.c.sentence_id == sentence_id
+                )
+            ).first()
+            if sentence and not still_linked:
+                db.delete(sentence)
+                deleted_sentences += 1
+        db.delete(upload)
+        db.commit()
+        return {
+            "success": True,
+            "deleted": deleted_sentences,
+            "message": f"CSV {upload.filename} imefutwa bila kuathiri CSV nyingine.",
+        }
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": "Kuna tatizo wakati wa kufuta CSV.",
             "details": str(e),
         }
 

@@ -129,6 +129,23 @@
 
         </form>
 
+        <h3>📄 CSV zilizopakiwa</h3>
+        {% if uploaded_csvs %}
+        <ul class="uploaded-csv-list">
+        {% for upload in uploaded_csvs %}
+            <li>
+                <span>{{ upload.filename }}</span>
+                <button type="button" class="delete-button"
+                        onclick="deleteUploadedCsv({{ upload.id }}, {{ upload.filename|tojson }})">
+                    🗑️ Futa CSV
+                </button>
+            </li>
+        {% endfor %}
+        </ul>
+        {% else %}
+        <p style="color: #666;">Bado hakuna CSV iliyopakiwa.</p>
+        {% endif %}
+
     </div>
 
 
@@ -416,6 +433,23 @@ function deleteSentences(sentenceCount) {
     .catch(error => {
         alert('❌ Kuna tatizo wakati wa kufuta sentensi: ' + error.message);
     });
+}
+
+function deleteUploadedCsv(uploadId, filename) {
+    if (!confirm(`Unataka kufuta CSV "${filename}"? Sentensi za CSV nyingine hazitafutwa.`)) {
+        return;
+    }
+    fetch(`/admin/delete-upload/${uploadId}`, { method: 'DELETE' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert('❌ Kuna tatizo: ' + (data.error || 'CSV haikufutwa'));
+            }
+        })
+        .catch(error => alert('❌ Kuna tatizo wakati wa kufuta CSV: ' + error.message));
 }
 
 </script>
